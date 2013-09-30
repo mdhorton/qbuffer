@@ -39,15 +39,15 @@ public class PerfTest {
     }
 
     public static void main(final String[] args) throws Exception {
-        final boolean runSingle = false;
+        final boolean runSingle = true;
         final boolean runMulti = true;
         final boolean runUnit = false;
         final boolean runWarmup = true;
 
-        final long operations = 3_000_000_000L;
+        final long operations = 300_000_000L;
         final int iterations = 20;
 
-        final int[] baseBatchSizes = {1, 10, 100, 1000};
+        final int[] baseBatchSizes = {1};
         final int[] batchMultipliers = {1, 3, 6};
         final int[] queueCounts = {2, 3};
 
@@ -56,7 +56,7 @@ public class PerfTest {
 
         // warmup
         if (runWarmup) {
-            final int batchSize = 10;
+            final int batchSize = 1;
             final int capacity = batchSize * 1_000;
 
             System.out.println("warmup");
@@ -70,7 +70,6 @@ public class PerfTest {
         }
 
         System.out.println("starting perf runs");
-
 
         for (int baseBatchSize : baseBatchSizes) {
             for (int batchMultiplier : batchMultipliers) {
@@ -112,7 +111,7 @@ public class PerfTest {
     }
 
     private void stats(final String name, final long operations, final long nanos) {
-        //printStats(name, operations, nanos);
+        printStats(name, operations, nanos);
 
         long[] vals = results.get(name);
         if (vals == null) {
