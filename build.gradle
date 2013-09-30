@@ -1,0 +1,8 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+task perf(type: JavaExec, dependsOn:[classes]) {
+  main = 'net.nostromo.qbuffer.PerfTest'
+  classpath = sourceSets.main.runtimeClasspath
+  maxHeapSize = '2g'
+}

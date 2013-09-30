@@ -1,6 +1,10 @@
+out
+build
+graph/qbuffer_tmp*
+.gradle
+.idea
+qbuffer.iml
 *.class
-
-# Package Files #
 *.jar
-*.war
-*.ear
+*.swp
+*~
