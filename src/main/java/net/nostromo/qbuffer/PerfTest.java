@@ -36,18 +36,20 @@ public class PerfTest {
         this.operations = operations;
         this.capacity = capacity;
         this.batchSize = batchSize;
+
+        System.out.format("ops: %,d - batch: %,d%n", operations, batchSize);
     }
 
     public static void main(final String[] args) throws Exception {
         final boolean runSingle = true;
         final boolean runMulti = true;
         final boolean runUnit = false;
-        final boolean runWarmup = true;
+        final int warmupRuns = 5;
 
-        final long operations = 300_000_000L;
+        final long operations = 3_000_000_000L;
         final int iterations = 20;
 
-        final int[] baseBatchSizes = {1};
+        final int[] baseBatchSizes = {10, 100};
         final int[] batchMultipliers = {1, 3, 6};
         final int[] queueCounts = {2, 3};
 
@@ -55,14 +57,13 @@ public class PerfTest {
         final PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(file)));
 
         // warmup
-        if (runWarmup) {
-            final int batchSize = 1;
+        if (warmupRuns > 0) System.out.println("warmup");
+
+        for (int x = 0; x < warmupRuns; x++) {
+            final int batchSize = 1_000;
             final int capacity = batchSize * 1_000;
 
-            System.out.println("warmup");
-            System.out.format("ops: %,d - batch: %,d%n", operations, batchSize);
-
-            final PerfTest test = new PerfTest(operations, capacity, batchSize);
+            final PerfTest test = new PerfTest(1_000_000_000, capacity, batchSize);
 
             if (runSingle) test.qbufferTest();
             if (runMulti) test.qbufferMultipleTest(2);
@@ -75,8 +76,6 @@ public class PerfTest {
             for (int batchMultiplier : batchMultipliers) {
                 final int batchSize = baseBatchSize * batchMultiplier;
                 final int capacity = batchSize * 1_000;
-
-                System.out.format("ops: %,d - batch: %,d%n", operations, batchSize);
 
                 final PerfTest test = new PerfTest(operations, capacity, batchSize);
 
