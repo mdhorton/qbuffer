@@ -47,7 +47,7 @@ public abstract class QBufferParticipant<E> {
     public long begin() {
         // do we need to calculate a new opsCapacity?
         if (opsCapacity == 0) opsCapacity = calcOpsCapacity();
-        // return opsCapacity, but not greater than batchSize
+        // return opsCapacity, but ensure it's not greater than batchSize
         return (batchSize < opsCapacity) ? batchSize : opsCapacity;
     }
 
