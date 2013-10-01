@@ -1,9 +1,9 @@
 out
 build
-graph/qbuffer_tmp*
 .gradle
 .idea
 qbuffer.iml
+graph/qbuffer_tmp*
 *.class
 *.jar
 *.swp
