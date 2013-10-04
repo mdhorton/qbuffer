@@ -40,7 +40,7 @@ public class QBuffer<E> {
         final AtomicLong tail = new AtomicLong();
 
         producer = new QBufferProducer(this.capacity, this.batchSize, data, head, tail);
-        consumer = new QBufferConsumer(this.capacity, this.batchSize, data, head, tail);
+        consumer = new QBufferConsumer(this.capacity, this.batchSize, data, tail, head);
     }
 
     public int getCapacity() {

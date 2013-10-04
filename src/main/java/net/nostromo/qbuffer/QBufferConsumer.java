@@ -20,14 +20,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class QBufferConsumer<E> extends QBufferParticipant<E> {
 
-    public QBufferConsumer(final int capacity, final int batchSize, final E[] data, final AtomicLong head,
-                           final AtomicLong tail) {
-        super(capacity, batchSize, data, tail, head); // tail and head are flipped for consumer
+    public QBufferConsumer(final int capacity, final int batchSize, final E[] data, final AtomicLong tail,
+            final AtomicLong head) {
+        super(capacity, batchSize, data, tail, head);
     }
 
-    // yen is the queue tail for the consumer
+    // head is the queue tail for the consumer
     long calcOpsCapacity() {
-        return yen.get() - ops;
+        return head.get() - ops;
     }
 
     public E remove() {

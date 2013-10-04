@@ -42,15 +42,15 @@ public class PerfTest {
 
     public static void main(final String[] args) throws Exception {
         final boolean runSingle = true;
-        final boolean runMulti = true;
+        final boolean runMulti = false;
         final boolean runUnit = false;
-        final int warmupRuns = 5;
+        final int warmupRuns = 0;
 
-        final long operations = 3_000_000_000L;
+        final long operations = 100_000_000L;
         final int iterations = 20;
 
-        final int[] baseBatchSizes = {10, 100};
-        final int[] batchMultipliers = {1, 3, 6};
+        final int[] baseBatchSizes = {1_000};
+        final int[] batchMultipliers = {1};
         final int[] queueCounts = {2, 3};
 
         final File file = new File("graph/qbuffer_tmp.dat");

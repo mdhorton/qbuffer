@@ -26,20 +26,20 @@ public abstract class QBufferParticipant<E> {
 
     // these 3 items are shared by producer and consumer objects
     protected final E[] data;
-    protected final AtomicLong yen;
-    protected final AtomicLong yang;
+    protected final AtomicLong head;
+    protected final AtomicLong tail;
 
     protected long ops;
     protected long opsCapacity;
 
-    public QBufferParticipant(final int capacity, final int batchSize, final E[] data, final AtomicLong yen,
-                              final AtomicLong yang) {
+    public QBufferParticipant(final int capacity, final int batchSize, final E[] data, final AtomicLong head,
+            final AtomicLong tail) {
         this.capacity = capacity;
         this.batchSize = batchSize;
         this.mask = capacity - 1;
         this.data = data;
-        this.yen = yen;
-        this.yang = yang;
+        this.head = head;
+        this.tail = tail;
     }
 
     abstract long calcOpsCapacity();
@@ -64,23 +64,23 @@ public abstract class QBufferParticipant<E> {
     }
 
     private long commit(final QBuffer.CommitMode mode) {
-        final long opCount = ops - yang.get();
+        final long opCount = ops - tail.get();
         opsCapacity -= opCount;
 
         switch (mode) {
             case LAZY_SET_MIX:
                 // if we've used up the current opsCapacity then set(), otherwise lazySet(),
-                // this logic seemed to perform slightly better that just lazySet()
-                if (opsCapacity == 0) yang.set(ops);
-                else yang.lazySet(ops);
+                // this logic seemed to perform better that just lazySet()
+                if (opsCapacity == 0) tail.set(ops);
+                else tail.lazySet(ops);
                 break;
             case SET:
                 // just set()
-                yang.set(ops);
+                tail.set(ops);
                 break;
             case LAZY_SET:
                 // just lazySet()
-                yang.lazySet(ops);
+                tail.lazySet(ops);
                 break;
         }
 

@@ -21,13 +21,13 @@ import java.util.concurrent.atomic.AtomicLong;
 public class QBufferProducer<E> extends QBufferParticipant<E> {
 
     public QBufferProducer(final int capacity, final int batchSize, final E[] data, final AtomicLong head,
-                           final AtomicLong tail) {
+            final AtomicLong tail) {
         super(capacity, batchSize, data, head, tail);
     }
 
-    // yen is the queue head for the producer
+    // head is the queue head for the producer
     long calcOpsCapacity() {
-        return capacity - (ops - yen.get());
+        return capacity - (ops - head.get());
     }
 
     public void add(final E e) {
