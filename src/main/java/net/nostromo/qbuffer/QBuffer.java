@@ -34,8 +34,8 @@ public class QBuffer<E> {
         // batchSize can't be greater that data.length
         final int actualBatchSize = Math.min(batchSize, data.length);
 
-        producer = new QBufferProducer(data, head, tail, actualBatchSize);
-        consumer = new QBufferConsumer(data, tail, head, actualBatchSize);
+        producer = new QBufferProducer<>(data, head, tail, actualBatchSize);
+        consumer = new QBufferConsumer<>(data, tail, head, actualBatchSize);
     }
 
     public QBufferProducer<E> producer() {

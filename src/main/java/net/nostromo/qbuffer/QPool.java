@@ -34,8 +34,8 @@ public class QPool<E> {
         // batchSize can't be greater that data.length
         final int actualBatchSize = Math.min(batchSize, data.length);
 
-        producer = new QPoolProducer(data, head, tail, actualBatchSize);
-        consumer = new QPoolConsumer(data, tail, head, actualBatchSize);
+        producer = new QPoolProducer<>(data, head, tail, actualBatchSize);
+        consumer = new QPoolConsumer<>(data, tail, head, actualBatchSize);
     }
 
     public QPoolProducer<E> producer() {
