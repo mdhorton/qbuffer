@@ -16,15 +16,8 @@
  */
 package net.nostromo.qbuffer;
 
-import java.util.concurrent.atomic.AtomicLong;
-
-public class QBufferConsumer<E> extends QConsumer<E> {
-
-    public QBufferConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final int batchSize) {
-        super(data, tail, head, batchSize);
-    }
-
-    public E remove() {
-        return data[(int) (ops++ & mask)];
+public class QUtil {
+    public static int nextPowerOf2(final int value) {
+        return 1 << (32 - Integer.numberOfLeadingZeros(value - 1));
     }
 }

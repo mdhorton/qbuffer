@@ -18,13 +18,17 @@ package net.nostromo.qbuffer;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public class QBufferConsumer<E> extends QConsumer<E> {
+public class QPoolProducer<E> extends QProducer<E> {
 
-    public QBufferConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final int batchSize) {
-        super(data, tail, head, batchSize);
+    public QPoolProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final int batchSize) {
+        super(data, head, tail, batchSize);
     }
 
-    public E remove() {
-        return data[(int) (ops++ & mask)];
+    public E peek() {
+        return data[(int) (ops & mask)];
+    }
+
+    public void produce() {
+        ops++;
     }
 }

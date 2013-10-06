@@ -18,16 +18,10 @@ package net.nostromo.qbuffer;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public class QBufferProducer<E> extends QBufferParticipant<E> {
+public class QBufferProducer<E> extends QProducer<E> {
 
-    public QBufferProducer(final int capacity, final int batchSize, final E[] data, final AtomicLong head,
-            final AtomicLong tail) {
-        super(capacity, batchSize, data, head, tail);
-    }
-
-    // head is the queue head for the producer
-    long calcOpsCapacity() {
-        return capacity - (ops - head.get());
+    public QBufferProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final int batchSize) {
+        super(data, head, tail, batchSize);
     }
 
     public void add(final E e) {

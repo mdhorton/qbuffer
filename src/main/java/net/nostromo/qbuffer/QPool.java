@@ -18,15 +18,15 @@ package net.nostromo.qbuffer;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public class QBuffer<E> {
+public class QPool<E> {
 
-    private final QBufferProducer<E> producer;
-    private final QBufferConsumer<E> consumer;
+    private final QPoolProducer<E> producer;
+    private final QPoolConsumer<E> consumer;
 
-    @SuppressWarnings("unchecked")
-    public QBuffer(final int capacity, final int batchSize) {
-        // data.length must be power a of 2
-        final E[] data = (E[]) new Object[QUtil.nextPowerOf2(capacity)];
+    public QPool(final E[] data, final int batchSize) {
+        if (data.length != QUtil.nextPowerOf2(data.length)) {
+            throw new IllegalArgumentException("data.length must be a power of 2");
+        }
 
         final AtomicLong head = new AtomicLong();
         final AtomicLong tail = new AtomicLong();
@@ -34,15 +34,15 @@ public class QBuffer<E> {
         // batchSize can't be greater that data.length
         final int actualBatchSize = Math.min(batchSize, data.length);
 
-        producer = new QBufferProducer(data, head, tail, actualBatchSize);
-        consumer = new QBufferConsumer(data, tail, head, actualBatchSize);
+        producer = new QPoolProducer(data, head, tail, actualBatchSize);
+        consumer = new QPoolConsumer(data, tail, head, actualBatchSize);
     }
 
-    public QBufferProducer<E> producer() {
+    public QPoolProducer<E> producer() {
         return producer;
     }
 
-    public QBufferConsumer<E> consumer() {
+    public QPoolConsumer<E> consumer() {
         return consumer;
     }
 }
