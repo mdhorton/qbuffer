@@ -24,8 +24,12 @@ public class QConsumer<E> extends QParticipant<E> {
         super(data, tail, head, batchSize);
     }
 
+    long availableOperations() {
+        return size();
+    }
+
     // head is the queue tail for the consumer
-    long calcOpsCapacity() {
+    public long size() {
         return head.get() - ops;
     }
 }

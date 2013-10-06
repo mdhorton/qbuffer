@@ -24,10 +24,6 @@ public class QPoolProducer<E> extends QProducer<E> {
         super(data, head, tail, batchSize);
     }
 
-    public E peek() {
-        return data[(int) (ops & mask)];
-    }
-
     public void produce() {
         ops++;
     }

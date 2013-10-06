@@ -20,6 +20,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class QParticipant<E> {
 
+    public enum CommitMode {
+        LAZY_SET_MIX, SET, LAZY_SET;
+    }
+
     // these first 3 vars are used by both the producer and consumer threads
     protected final E[] data;
     protected final AtomicLong head;
@@ -40,11 +44,29 @@ public abstract class QParticipant<E> {
         mask = data.length - 1;
     }
 
-    abstract long calcOpsCapacity();
+    abstract long availableOperations();
+
+    public abstract long size();
+
+    public E peek() {
+        return data[(int) (ops & mask)];
+    }
+
+    public boolean isEmpty() {
+        return size() == 0;
+    }
+
+    public int capacity() {
+        return data.length;
+    }
+
+    public int batchSize() {
+        return batchSize;
+    }
 
     public long begin() {
         // do we need to calculate a new opsCapacity?
-        if (opsCapacity <= 0) opsCapacity = calcOpsCapacity();
+        if (opsCapacity == 0) opsCapacity = availableOperations();
         // return opsCapacity, but ensure it's not greater than batchSize
         return (batchSize < opsCapacity) ? batchSize : opsCapacity;
     }
@@ -69,7 +91,7 @@ public abstract class QParticipant<E> {
             case LAZY_SET_MIX:
                 // if we've used up the current opsCapacity then set(), otherwise lazySet(),
                 // this logic seemed to perform better that just lazySet()
-                if (opsCapacity <= 0) tail.set(ops);
+                if (opsCapacity == 0) tail.set(ops);
                 else tail.lazySet(ops);
                 break;
             case SET:
@@ -83,13 +105,5 @@ public abstract class QParticipant<E> {
         }
 
         return opCount;
-    }
-
-    public int capacity() {
-        return data.length;
-    }
-
-    public int batchSize() {
-        return batchSize;
     }
 }

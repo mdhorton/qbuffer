@@ -24,8 +24,12 @@ public abstract class QProducer<E> extends QParticipant<E> {
         super(data, head, tail, batchSize);
     }
 
+    long availableOperations() {
+        return data.length - size();
+    }
+
     // head is the queue head for the producer
-    long calcOpsCapacity() {
-        return data.length - (ops - head.get());
+    public long size() {
+        return ops - head.get();
     }
 }
