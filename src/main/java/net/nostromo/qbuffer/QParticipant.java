@@ -16,18 +16,25 @@
  */
 package net.nostromo.qbuffer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class QParticipant<E> {
 
     public enum CommitMode {
-        LAZY_SET_MIX, SET, LAZY_SET;
+        SET, LAZY_SET, LAZY_SET_MIX;
     }
 
-    // these first 3 vars are used by both the producer and consumer threads
+    private static final AtomicInteger idCounter = new AtomicInteger();
+
+    private final int id;
+
+    // these 4 vars are used by both the producer and consumer threads
     protected final E[] data;
     protected final AtomicLong head;
     protected final AtomicLong tail;
+    protected final AtomicBoolean active;
 
     // the remaining vars are used only by either a producer or a consumer thread
     protected final int batchSize;
@@ -36,12 +43,15 @@ public abstract class QParticipant<E> {
     protected long ops;
     protected long opsCapacity;
 
-    public QParticipant(final E[] data, final AtomicLong head, final AtomicLong tail, final int batchSize) {
+    public QParticipant(final E[] data, final AtomicLong head, final AtomicLong tail, final AtomicBoolean active,
+            final int batchSize) {
         this.data = data;
         this.head = head;
         this.tail = tail;
+        this.active = active;
         this.batchSize = batchSize;
         mask = data.length - 1;
+        id = idCounter.getAndIncrement();
     }
 
     abstract long availableOperations();
@@ -56,6 +66,20 @@ public abstract class QParticipant<E> {
         return size() == 0;
     }
 
+    public boolean isActive() {
+        return active.get();
+    }
+
+    public boolean activate() {
+        return active.compareAndSet(false, true);
+    }
+
+    public boolean deactivate() {
+        setCommit();
+        if (!active.compareAndSet(true, false)) return false;
+        return true;
+    }
+
     public int capacity() {
         return data.length;
     }
@@ -66,7 +90,13 @@ public abstract class QParticipant<E> {
 
     public long begin() {
         // do we need to calculate a new opsCapacity?
-        if (opsCapacity == 0) opsCapacity = availableOperations();
+        if (opsCapacity == 0) {
+            final boolean active = isActive();
+            opsCapacity = availableOperations();
+            // return -1 when empty and inactive
+            if (opsCapacity == 0 && !active) return -1;
+        }
+
         // return opsCapacity, but ensure it's not greater than batchSize
         return (batchSize < opsCapacity) ? batchSize : opsCapacity;
     }
@@ -105,5 +135,22 @@ public abstract class QParticipant<E> {
         }
 
         return opCount;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+
+        final QParticipant that = (QParticipant) obj;
+
+        if (id != that.id) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return id;
     }
 }
