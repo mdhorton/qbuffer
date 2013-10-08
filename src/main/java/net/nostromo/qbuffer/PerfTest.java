@@ -47,11 +47,11 @@ public class PerfTest {
         final int warmupRuns = 0;
 
         final long operations = 100_000_000L;
-        final int iterations = 20;
+        final int iterations = 5;
 
-        final int[] baseBatchSizes = {1_000};
-        final int[] batchMultipliers = {1};
-        final int[] queueCounts = {2, 3};
+        final int[] baseBatchSizes = { 10, 100, 1_000 };
+        final int[] batchMultipliers = { 1 };
+        final int[] queueCounts = { 2, 3 };
 
         final File file = new File("graph/qbuffer_tmp.dat");
         final PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(file)));
@@ -206,6 +206,69 @@ public class PerfTest {
         stats("qbuffer", operations, stop - start);
     }
 
+    private void qbuffer6Test() throws Exception {
+        final QBuffer<String> queue = new QBuffer<>(capacity, batchSize);
+
+        final CountDownLatch startGate = new CountDownLatch(1);
+        final CountDownLatch endGate = new CountDownLatch(2);
+        final String object = "hey";
+
+        new Thread(new Runnable() {
+            private final QBufferConsumer<String> consumer = queue.consumer();
+            private long cnt;
+
+            @Override
+            public void run() {
+                try {
+                    startGate.await();
+                    while (cnt < operations) {
+                        process();
+                    }
+                    endGate.countDown();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            private void process() {
+                if (consumer.poll() != null) cnt++;
+                else Thread.yield();
+            }
+        }).start();
+
+        new Thread(new Runnable() {
+            private final QBufferProducer<String> producer = queue.producer();
+            private long cnt;
+
+            @Override
+            public void run() {
+                try {
+                    startGate.await();
+                    while (cnt < operations) {
+                        process();
+                    }
+                    producer.setCommit();
+                    endGate.countDown();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            private void process() {
+                if (producer.offer(object)) cnt++;
+                else Thread.yield();
+            }
+        }).start();
+
+        final long start = System.nanoTime();
+        startGate.countDown();
+        endGate.await();
+        final long stop = System.nanoTime();
+
+        stats("qbuffer6", operations, stop - start);
+    }
+
+    @SuppressWarnings("unchecked")
     private void qbufferMultipleTest(final int queueCount) throws Exception {
         final CountDownLatch startGate = new CountDownLatch(1);
         final CountDownLatch endGate = new CountDownLatch(queueCount + 1);

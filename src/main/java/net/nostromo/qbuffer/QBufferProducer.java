@@ -16,15 +16,35 @@
  */
 package net.nostromo.qbuffer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class QBufferProducer<E> extends QProducer<E> {
 
-    public QBufferProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final int batchSize) {
-        super(data, head, tail, batchSize);
+    public QBufferProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final AtomicBoolean active,
+            final int batchSize) {
+        super(data, head, tail, active, batchSize);
     }
 
     public void add(final E e) {
         data[(int) (ops++ & mask)] = e;
+    }
+
+    public boolean offer(final E e) {
+        if (opsCapacity == 0) {
+            if (tail.get() != ops) tail.lazySet(ops);
+            opsCapacity = Math.min(batchSize, availableOperations());
+            if (opsCapacity == 0) return false;
+        }
+
+        opsCapacity--;
+        add(e);
+        return true;
+    }
+
+    public void put(final E e) {
+        while (!offer(e)) {
+            Thread.yield();
+        }
     }
 }

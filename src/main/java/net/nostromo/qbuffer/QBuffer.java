@@ -16,6 +16,7 @@
  */
 package net.nostromo.qbuffer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class QBuffer<E> {
@@ -25,17 +26,18 @@ public class QBuffer<E> {
 
     @SuppressWarnings("unchecked")
     public QBuffer(final int capacity, final int batchSize) {
-        // data.length must be power a of 2
+        // data.length must be a power of 2
         final E[] data = (E[]) new Object[QUtil.nextPowerOf2(capacity)];
 
         final AtomicLong head = new AtomicLong();
         final AtomicLong tail = new AtomicLong();
+        final AtomicBoolean active = new AtomicBoolean(true);
 
-        // batchSize can't be greater that data.length
+        // batchSize can't be greater than data.length
         final int actualBatchSize = Math.min(batchSize, data.length);
 
-        producer = new QBufferProducer<>(data, head, tail, actualBatchSize);
-        consumer = new QBufferConsumer<>(data, tail, head, actualBatchSize);
+        producer = new QBufferProducer<>(data, head, tail, active, actualBatchSize);
+        consumer = new QBufferConsumer<>(data, tail, head, active, actualBatchSize);
     }
 
     public QBufferProducer<E> producer() {

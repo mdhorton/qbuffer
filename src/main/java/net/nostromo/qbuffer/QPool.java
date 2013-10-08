@@ -16,6 +16,7 @@
  */
 package net.nostromo.qbuffer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class QPool<E> {
@@ -30,12 +31,13 @@ public class QPool<E> {
 
         final AtomicLong head = new AtomicLong();
         final AtomicLong tail = new AtomicLong();
+        final AtomicBoolean active = new AtomicBoolean(true);
 
-        // batchSize can't be greater that data.length
+        // batchSize can't be greater than data.length
         final int actualBatchSize = Math.min(batchSize, data.length);
 
-        producer = new QPoolProducer<>(data, head, tail, actualBatchSize);
-        consumer = new QPoolConsumer<>(data, tail, head, actualBatchSize);
+        producer = new QPoolProducer<>(data, head, tail, active, actualBatchSize);
+        consumer = new QPoolConsumer<>(data, tail, head, active, actualBatchSize);
     }
 
     public QPoolProducer<E> producer() {

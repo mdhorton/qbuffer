@@ -16,15 +16,28 @@
  */
 package net.nostromo.qbuffer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class QBufferConsumer<E> extends QConsumer<E> {
 
-    public QBufferConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final int batchSize) {
-        super(data, tail, head, batchSize);
+    public QBufferConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final AtomicBoolean active,
+            final int batchSize) {
+        super(data, tail, head, active, batchSize);
     }
 
     public E remove() {
         return data[(int) (ops++ & mask)];
+    }
+
+    public E poll() {
+        if (opsCapacity == 0) {
+            if (tail.get() != ops) tail.lazySet(ops);
+            opsCapacity = Math.min(batchSize, availableOperations());
+            if (opsCapacity == 0) return null;
+        }
+
+        opsCapacity--;
+        return remove();
     }
 }

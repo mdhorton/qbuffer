@@ -16,12 +16,14 @@
  */
 package net.nostromo.qbuffer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class QConsumer<E> extends QParticipant<E> {
 
-    public QConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final int batchSize) {
-        super(data, tail, head, batchSize);
+    public QConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final AtomicBoolean active,
+            final int batchSize) {
+        super(data, tail, head, active, batchSize);
     }
 
     long availableOperations() {

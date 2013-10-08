@@ -16,15 +16,17 @@
  */
 package net.nostromo.qbuffer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class QPoolProducer<E> extends QProducer<E> {
 
-    public QPoolProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final int batchSize) {
-        super(data, head, tail, batchSize);
+    public QPoolProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final AtomicBoolean active,
+            final int batchSize) {
+        super(data, head, tail, active, batchSize);
     }
 
-    public void produce() {
-        ops++;
+    public E produce() {
+        return data[(int) (ops++ & mask)];
     }
 }
