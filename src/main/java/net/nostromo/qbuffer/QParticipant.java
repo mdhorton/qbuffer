@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class QParticipant<E> {
 
     public enum CommitMode {
-        SET, LAZY_SET, LAZY_SET_MIX;
+        SET, LAZY_SET, LAZY_SET_MIX
     }
 
     private static final AtomicInteger idCounter = new AtomicInteger();
@@ -143,10 +143,7 @@ public abstract class QParticipant<E> {
         if (obj == null || getClass() != obj.getClass()) return false;
 
         final QParticipant that = (QParticipant) obj;
-
-        if (id != that.id) return false;
-
-        return true;
+        return id != that.id;
     }
 
     @Override
