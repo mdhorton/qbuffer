@@ -143,7 +143,7 @@ public abstract class QParticipant<E> {
         if (obj == null || getClass() != obj.getClass()) return false;
 
         final QParticipant that = (QParticipant) obj;
-        return id != that.id;
+        return id == that.id;
     }
 
     @Override
