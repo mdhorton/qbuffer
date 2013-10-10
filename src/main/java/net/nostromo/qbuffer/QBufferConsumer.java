@@ -40,4 +40,12 @@ public class QBufferConsumer<E> extends QConsumer<E> {
         opsCapacity--;
         return remove();
     }
+
+    public E get() {
+        while (true) {
+            final E e = poll();
+            if (e != null) return e;
+            Thread.yield();
+        }
+    }
 }

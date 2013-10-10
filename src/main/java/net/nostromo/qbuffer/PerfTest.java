@@ -163,7 +163,7 @@ public class PerfTest {
                 for (int y = 0; y < s; y++) {
                     consumer.remove();
                 }
-                cnt += consumer.lazySetMixCommit();
+                cnt += consumer.lazyMixCommit();
             }
         }).start();
 
@@ -194,7 +194,7 @@ public class PerfTest {
                 for (int y = 0; y < s; y++) {
                     producer.add(object);
                 }
-                cnt += producer.lazySetMixCommit();
+                cnt += producer.lazyMixCommit();
             }
         }).start();
 
@@ -247,7 +247,7 @@ public class PerfTest {
                     while (cnt < operations) {
                         process();
                     }
-                    producer.setCommit();
+                    producer.commit();
                     endGate.countDown();
                 } catch (Exception ex) {
                     ex.printStackTrace();
@@ -310,7 +310,7 @@ public class PerfTest {
                     for (int y = 0; y < s; y++) {
                         consumer.remove();
                     }
-                    cnt += consumer.lazySetMixCommit();
+                    cnt += consumer.lazyMixCommit();
                 }
             }).start();
         }
@@ -352,7 +352,7 @@ public class PerfTest {
                 for (int y = 0; y < s; y++) {
                     producer.add(object);
                 }
-                cnt += producer.lazySetMixCommit();
+                cnt += producer.lazyMixCommit();
                 cnts[idx] = cnt;
             }
         }).start();
@@ -402,7 +402,7 @@ public class PerfTest {
                     }
                     cnt++;
                 }
-                consumer.lazySetMixCommit();
+                consumer.lazyMixCommit();
             }
         }).start();
 
@@ -434,7 +434,7 @@ public class PerfTest {
                     producer.add(cnt);
                     cnt++;
                 }
-                producer.lazySetMixCommit();
+                producer.lazyMixCommit();
             }
         }).start();
 

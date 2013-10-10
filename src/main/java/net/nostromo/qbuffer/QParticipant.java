@@ -26,9 +26,8 @@ public abstract class QParticipant<E> {
         SET, LAZY_SET, LAZY_SET_MIX
     }
 
+    // simple way to generate a unique id
     private static final AtomicInteger idCounter = new AtomicInteger();
-
-    private final int id;
 
     // these 4 vars are used by both the producer and consumer threads
     protected final E[] data;
@@ -42,6 +41,9 @@ public abstract class QParticipant<E> {
 
     protected long ops;
     protected long opsCapacity;
+
+    // used in hashcode/equals
+    private final int id;
 
     public QParticipant(final E[] data, final AtomicLong head, final AtomicLong tail, final AtomicBoolean active,
             final int batchSize) {
@@ -75,7 +77,7 @@ public abstract class QParticipant<E> {
     }
 
     public boolean deactivate() {
-        setCommit();
+        commit();
         if (!active.compareAndSet(true, false)) return false;
         return true;
     }
@@ -101,15 +103,15 @@ public abstract class QParticipant<E> {
         return (batchSize < opsCapacity) ? batchSize : opsCapacity;
     }
 
-    public long setCommit() {
+    public long commit() {
         return commit(CommitMode.SET);
     }
 
-    public long lazySetCommit() {
+    public long lazyCommit() {
         return commit(CommitMode.LAZY_SET);
     }
 
-    public long lazySetMixCommit() {
+    public long lazyMixCommit() {
         return commit(CommitMode.LAZY_SET_MIX);
     }
 
@@ -117,10 +119,15 @@ public abstract class QParticipant<E> {
         final long opCount = ops - tail.get();
         opsCapacity -= opCount;
 
+        // enum switching is (hopefully) faster than if statements
         switch (mode) {
             case LAZY_SET_MIX:
-                // if we've used up the current opsCapacity then set(), otherwise lazySet(),
-                // this logic seemed to perform better that just lazySet()
+                // If we've used up the current opsCapacity then set(), otherwise lazySet().
+                // This logic performs better that just lazySet() under extreme throughput.
+                // My theory is that when adding items extremely fast, issuing a periodic
+                // set() ensures the other side sees the data faster, which means they can
+                // process more.  Otherwise they queue might sit full/empty briefly, and
+                // thus slightly reducing throughput.
                 if (opsCapacity == 0) tail.set(ops);
                 else tail.lazySet(ops);
                 break;
