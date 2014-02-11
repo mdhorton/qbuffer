@@ -14,14 +14,20 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package net.nostromo.qbuffer;
+package qbuffer;
+
+import net.nostromo.qbuffer.QBuffer;
+import net.nostromo.qbuffer.QBufferConsumer;
+import net.nostromo.qbuffer.QBufferProducer;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.util.Map;
+import java.util.Queue;
 import java.util.TreeMap;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
 public class PerfTest {
@@ -48,8 +54,9 @@ public class PerfTest {
 
         final long operations = 100_000_000L;
         final int iterations = 5;
+        final int arraySize = 10;
 
-        final int[] baseBatchSizes = { 10, 100, 1_000 };
+        final int[] baseBatchSizes = { 1, 10, 100, 1_000 };
         final int[] batchMultipliers = { 1 };
         final int[] queueCounts = { 2, 3 };
 
@@ -65,8 +72,8 @@ public class PerfTest {
 
             final PerfTest test = new PerfTest(1_000_000_000, capacity, batchSize);
 
-            if (runSingle) test.qbufferTest();
-            if (runMulti) test.qbufferMultipleTest(2);
+            if (runSingle) test.qbufferTest(arraySize);
+            if (runMulti) test.qbufferMultipleTest(arraySize, 2);
             if (runUnit) test.qbufferUnitTest();
         }
 
@@ -80,10 +87,10 @@ public class PerfTest {
                 final PerfTest test = new PerfTest(operations, capacity, batchSize);
 
                 for (int iteration = 0; iteration < iterations; iteration++) {
-                    if (runSingle) test.qbufferTest();
+                    if (runSingle) test.qbufferTest(arraySize);
                     if (runMulti) {
                         for (int queueCount : queueCounts) {
-                            test.qbufferMultipleTest(queueCount);
+                            test.qbufferMultipleTest(arraySize, queueCount);
                         }
                     }
                     if (runUnit) test.qbufferUnitTest();
@@ -92,6 +99,12 @@ public class PerfTest {
                 test.summarize(writer);
             }
         }
+
+        final PerfTest test = new PerfTest(operations, 10_000, 0);
+        for (int iteration = 0; iteration < iterations; iteration++) {
+            test.jdkQueueTest(arraySize);
+        }
+        test.summarize(writer);
 
         writer.close();
     }
@@ -129,15 +142,180 @@ public class PerfTest {
                 (operations / (double) nanos) * 1_000_000_000, (double) nanos / operations);
     }
 
-    private void qbufferTest() throws Exception {
-        final QBuffer<String> queue = new QBuffer<>(capacity, batchSize);
+    private void jdkQueueTest(final int arraySize) throws Exception {
+        final Queue<String[]> queue = new ArrayBlockingQueue<>(capacity);
 
         final CountDownLatch startGate = new CountDownLatch(1);
         final CountDownLatch endGate = new CountDownLatch(2);
         final String object = "hey";
 
         new Thread(new Runnable() {
-            private final QBufferConsumer<String> consumer = queue.consumer();
+            private long cnt;
+
+            @Override
+            public void run() {
+                try {
+                    startGate.await();
+                    while (cnt < operations) {
+                        process();
+                    }
+                    endGate.countDown();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            private void process() {
+                final String[] arr = queue.poll();
+                if (arr == null) {
+                    Thread.yield();
+                    return;
+                }
+
+                for (int z = 0; z < arr.length; z++) {
+                    cnt++;
+                }
+            }
+        }).start();
+
+        new Thread(new Runnable() {
+            private long cnt;
+
+            @Override
+            public void run() {
+                try {
+                    startGate.await();
+                    while (cnt < operations) {
+                        process();
+                    }
+                    endGate.countDown();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            private void process() {
+                final String[] arr = new String[arraySize];
+                for (int z = 0; z < arraySize; z++) {
+                    arr[z] = object;
+                }
+
+                if (!queue.offer(arr)) {
+                    Thread.yield();
+                    return;
+                }
+
+                cnt += arraySize;
+            }
+        }).start();
+
+        final long start = System.nanoTime();
+        startGate.countDown();
+        endGate.await();
+        final long stop = System.nanoTime();
+
+        stats("jdkqueue", operations, stop - start);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void jdkQueueMultipleTest(final int queueCount) throws Exception {
+        final CountDownLatch startGate = new CountDownLatch(1);
+        final CountDownLatch endGate = new CountDownLatch(queueCount + 1);
+        final String object = "hey";
+
+        final Queue<String>[] queues = new Queue[queueCount];
+        final long cnts[] = new long[queueCount];
+
+        for (int n = 0; n < queueCount; n++) {
+            final Queue<String> queue = new ArrayBlockingQueue<>(capacity);
+            queues[n] = queue;
+            cnts[n] = 0;
+
+            new Thread(new Runnable() {
+                private long cnt;
+
+                @Override
+                public void run() {
+                    try {
+                        startGate.await();
+                        while (cnt < operations) {
+                            process();
+                        }
+                        endGate.countDown();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                }
+
+                private void process() {
+                    if (queue.poll() == null) {
+                        Thread.yield();
+                        return;
+                    }
+
+                    cnt++;
+                }
+            }).start();
+        }
+
+        new Thread(new Runnable() {
+            private long loops;
+            private int completed;
+
+            @Override
+            public void run() {
+                try {
+                    startGate.await();
+                    while (completed < queueCount) {
+                        process(loops++);
+                    }
+                    endGate.countDown();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            private void process(final long x) {
+                final int idx = (int) (x % queueCount);
+                long cnt = cnts[idx];
+
+                if (cnt == -1) return;
+
+                if (cnt >= operations) {
+                    cnts[idx] = -1;
+                    completed++;
+                    return;
+                }
+
+                final Queue<String> queue = queues[idx];
+
+                if (!queue.offer(object)) {
+                    Thread.yield();
+                    return;
+                }
+
+                cnt++;
+                cnts[idx] = cnt;
+            }
+        }).start();
+
+        final long start = System.nanoTime();
+        startGate.countDown();
+        endGate.await();
+        final long stop = System.nanoTime();
+
+        stats("jdkqueue-" + queueCount, operations * queueCount, stop - start);
+    }
+
+    private void qbufferTest(final int arraySize) throws Exception {
+        final QBuffer<String[]> queue = new QBuffer<>(capacity, batchSize);
+
+        final CountDownLatch startGate = new CountDownLatch(1);
+        final CountDownLatch endGate = new CountDownLatch(2);
+        final String object = "hey";
+
+        new Thread(new Runnable() {
+            private final QBufferConsumer<String[]> consumer = queue.consumer();
             private long cnt;
 
             @Override
@@ -161,14 +339,18 @@ public class PerfTest {
                 }
 
                 for (int y = 0; y < s; y++) {
-                    consumer.remove();
+                    final String[] arr = consumer.consume();
+                    for (int z = 0; z < arr.length; z++) {
+                        cnt++;
+                    }
                 }
-                cnt += consumer.lazyMixCommit();
+
+                consumer.lazyMixCommit();
             }
         }).start();
 
         new Thread(new Runnable() {
-            private final QBufferProducer<String> producer = queue.producer();
+            private final QBufferProducer<String[]> producer = queue.producer();
             private long cnt;
 
             @Override
@@ -192,9 +374,15 @@ public class PerfTest {
                 }
 
                 for (int y = 0; y < s; y++) {
-                    producer.add(object);
+                    final String[] arr = new String[arraySize];
+                    for (int z = 0; z < arraySize; z++) {
+                        arr[z] = object;
+                    }
+
+                    producer.produce(arr);
                 }
-                cnt += producer.lazyMixCommit();
+
+                cnt += (producer.lazyMixCommit() * arraySize);
             }
         }).start();
 
@@ -206,81 +394,18 @@ public class PerfTest {
         stats("qbuffer", operations, stop - start);
     }
 
-    private void qbuffer6Test() throws Exception {
-        final QBuffer<String> queue = new QBuffer<>(capacity, batchSize);
-
-        final CountDownLatch startGate = new CountDownLatch(1);
-        final CountDownLatch endGate = new CountDownLatch(2);
-        final String object = "hey";
-
-        new Thread(new Runnable() {
-            private final QBufferConsumer<String> consumer = queue.consumer();
-            private long cnt;
-
-            @Override
-            public void run() {
-                try {
-                    startGate.await();
-                    while (cnt < operations) {
-                        process();
-                    }
-                    endGate.countDown();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-
-            private void process() {
-                if (consumer.poll() != null) cnt++;
-                else Thread.yield();
-            }
-        }).start();
-
-        new Thread(new Runnable() {
-            private final QBufferProducer<String> producer = queue.producer();
-            private long cnt;
-
-            @Override
-            public void run() {
-                try {
-                    startGate.await();
-                    while (cnt < operations) {
-                        process();
-                    }
-                    producer.commit();
-                    endGate.countDown();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-
-            private void process() {
-                if (producer.offer(object)) cnt++;
-                else Thread.yield();
-            }
-        }).start();
-
-        final long start = System.nanoTime();
-        startGate.countDown();
-        endGate.await();
-        final long stop = System.nanoTime();
-
-        stats("qbuffer6", operations, stop - start);
-    }
-
     @SuppressWarnings("unchecked")
-    private void qbufferMultipleTest(final int queueCount) throws Exception {
+    private void qbufferMultipleTest(final int arraySize, final int queueCount) throws Exception {
         final CountDownLatch startGate = new CountDownLatch(1);
         final CountDownLatch endGate = new CountDownLatch(queueCount + 1);
-
-        final QBufferProducer<String>[] producers = new QBufferProducer[queueCount];
-        final long cnts[] = new long[queueCount];
-
         final String object = "hey";
 
+        final QBufferProducer<String[]>[] producers = new QBufferProducer[queueCount];
+        final long cnts[] = new long[queueCount];
+
         for (int n = 0; n < queueCount; n++) {
-            final QBuffer<String> queue = new QBuffer<>(capacity, batchSize);
-            final QBufferConsumer<String> consumer = queue.consumer();
+            final QBuffer<String[]> queue = new QBuffer<>(capacity, batchSize);
+            final QBufferConsumer<String[]> consumer = queue.consumer();
             producers[n] = queue.producer();
             cnts[n] = 0;
 
@@ -308,9 +433,13 @@ public class PerfTest {
                     }
 
                     for (int y = 0; y < s; y++) {
-                        consumer.remove();
+                        final String[] arr = consumer.consume();
+                        for (int z = 0; z < arr.length; z++) {
+                            cnt++;
+                        }
                     }
-                    cnt += consumer.lazyMixCommit();
+
+                    consumer.lazyMixCommit();
                 }
             }).start();
         }
@@ -336,13 +465,15 @@ public class PerfTest {
                 final int idx = (int) (x % queueCount);
                 long cnt = cnts[idx];
 
+                if (cnt == -1) return;
+
                 if (cnt >= operations) {
                     cnts[idx] = -1;
                     completed++;
                     return;
                 }
 
-                final QBufferProducer<String> producer = producers[idx];
+                final QBufferProducer<String[]> producer = producers[idx];
 
                 final long s = producer.begin();
                 if (s == 0) {
@@ -350,9 +481,15 @@ public class PerfTest {
                 }
 
                 for (int y = 0; y < s; y++) {
-                    producer.add(object);
+                    final String[] arr = new String[arraySize];
+                    for (int z = 0; z < arraySize; z++) {
+                        arr[z] = object;
+                    }
+
+                    producer.produce(arr);
                 }
-                cnt += producer.lazyMixCommit();
+
+                cnt += (producer.lazyMixCommit() * arraySize);
                 cnts[idx] = cnt;
             }
         }).start();
@@ -396,7 +533,7 @@ public class PerfTest {
                 }
 
                 for (int y = 0; y < s; y++) {
-                    final long value = consumer.remove();
+                    final long value = consumer.consume();
                     if (value != cnt) {
                         throw new IllegalStateException(value + " != " + cnt);
                     }
@@ -431,7 +568,7 @@ public class PerfTest {
                 }
 
                 for (int y = 0; y < s; y++) {
-                    producer.add(cnt);
+                    producer.produce(cnt);
                     cnt++;
                 }
                 producer.lazyMixCommit();

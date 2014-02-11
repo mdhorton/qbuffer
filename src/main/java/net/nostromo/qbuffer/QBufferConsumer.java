@@ -19,33 +19,23 @@ package net.nostromo.qbuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class QBufferConsumer<E> extends QConsumer<E> {
+public class QBufferConsumer<E> extends QParticipant<E> {
 
     public QBufferConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final AtomicBoolean active,
             final int batchSize) {
         super(data, tail, head, active, batchSize);
     }
 
-    public E remove() {
+    long availableOperations() {
+        return size();
+    }
+
+    // head is the queue tail for the consumer
+    public long size() {
+        return head.get() - ops;
+    }
+
+    public E consume() {
         return data[(int) (ops++ & mask)];
-    }
-
-    public E poll() {
-        if (opsCapacity == 0) {
-            if (tail.get() != ops) tail.lazySet(ops);
-            opsCapacity = Math.min(batchSize, availableOperations());
-            if (opsCapacity == 0) return null;
-        }
-
-        opsCapacity--;
-        return remove();
-    }
-
-    public E get() {
-        while (true) {
-            final E e = poll();
-            if (e != null) return e;
-            Thread.yield();
-        }
     }
 }
