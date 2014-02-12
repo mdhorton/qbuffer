@@ -85,7 +85,7 @@ public class QBuffer<E> {
      *
      * @return the next power of 2
      */
-    private int nextPowerOf2(final int value) {
+    private static int nextPowerOf2(final int value) {
         return 1 << (32 - Integer.numberOfLeadingZeros(value - 1));
     }
 }
