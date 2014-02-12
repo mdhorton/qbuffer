@@ -20,13 +20,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * This abstract class provides implementations used by both the consumer and producer objects.
+ *
+ * @param <E> the type of items held in this queue
+ */
 public abstract class QParticipant<E> {
 
     public enum CommitMode {
         SET, LAZY_SET, LAZY_SET_MIX
     }
 
-    // simple way to generate a unique id
+    // generate a unique id
     private static final AtomicInteger idCounter = new AtomicInteger();
 
     // these 4 vars are used by both the producer and consumer threads
@@ -45,6 +50,15 @@ public abstract class QParticipant<E> {
     // used in hashcode/equals
     private final int id;
 
+    /**
+     * Constructs a QParticipant with the given parameters.
+     *
+     * @param data data array backed by this queue
+     * @param tail AtomicLong representing the tail index value
+     * @param head AtomicLong representing the head index value
+     * @param active AtomicBoolean indicating whether this queue is active or not
+     * @param batchSize the max number of items that can be added/removed from the queue at one time
+     */
     public QParticipant(final E[] data, final AtomicLong head, final AtomicLong tail, final AtomicBoolean active,
             final int batchSize) {
         this.data = data;
@@ -119,7 +133,7 @@ public abstract class QParticipant<E> {
         final long opCount = ops - tail.get();
         opsCapacity -= opCount;
 
-        // enum switching is (hopefully) faster than if statements
+        // enum switching is faster than if statements
         switch (mode) {
             case LAZY_SET_MIX:
                 // If we've used up the current opsCapacity then set(), otherwise lazySet().

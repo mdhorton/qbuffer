@@ -19,23 +19,51 @@ package net.nostromo.qbuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * The consumer side object of the QBuffer queue.
+ *
+ * @param <E> the type of items held in this queue
+ */
 public class QBufferConsumer<E> extends QParticipant<E> {
 
-    public QBufferConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final AtomicBoolean active,
+    // see the QParticipant constructor for more info
+    protected QBufferConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final AtomicBoolean active,
             final int batchSize) {
+        // head is the queue tail for the consumer
         super(data, tail, head, active, batchSize);
     }
 
+    /**
+     * From the consumer's perspective this is the same as the size of the queue.
+     *
+     * @return the number of items that can be removed from the queue
+     */
+    @Override
     long availableOperations() {
         return size();
     }
 
-    // head is the queue tail for the consumer
+    /**
+     * The queue size is calculated by subtracting the number of removals from the number of adds.
+     * <p>
+     * From the consumer's perspective the AtomicLong head variable represents the total number of items added.
+     *
+     * @return the number of items currently in the queue
+     */
+    @Override
     public long size() {
         return head.get() - ops;
     }
 
+    /**
+     * Returns the last item in the queue.
+     *
+     * @return the last item in the queue
+     */
     public E consume() {
-        return data[(int) (ops++ & mask)];
+        final int idx = (int) (ops++ & mask);
+        final E e = data[idx];
+        data[idx] = null;
+        return e;
     }
 }

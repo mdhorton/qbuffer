@@ -19,22 +19,47 @@ package net.nostromo.qbuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * The producer side object of the QBuffer queue.
+ *
+ * @param <E> the type of items held in this queue
+ */
 public class QBufferProducer<E> extends QParticipant<E> {
 
-    public QBufferProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final AtomicBoolean active,
+    // see the QParticipant constructor for more info
+    protected QBufferProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final AtomicBoolean active,
             final int batchSize) {
+        // head is the queue head for the producer
         super(data, head, tail, active, batchSize);
     }
 
+    /**
+     * From the producer's perspective this is the queue size subtracted from the length of the backing data array.
+     *
+     * @return the number of items that can be added to the queue
+     */
+    @Override
     long availableOperations() {
         return data.length - size();
     }
 
-    // head is the queue head for the producer
+    /**
+     * The queue size is calculated by subtracting the number of removals from the number of adds.
+     * <p>
+     * From the producer's perspective the AtomicLong head variable represents the total number of items removed.
+     *
+     * @return the number of items currently in the queue
+     */
+    @Override
     public long size() {
         return ops - head.get();
     }
 
+    /**
+     * Add an item to the end of the queue.
+     *
+     * @param e the item to be added
+     */
     public void produce(final E e) {
         data[(int) (ops++ & mask)] = e;
     }

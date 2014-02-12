@@ -52,9 +52,9 @@ public class PerfTest {
         final boolean runUnit = false;
         final int warmupRuns = 0;
 
-        final long operations = 100_000_000L;
+        final long operations = 1_000_000_000L;
         final int iterations = 5;
-        final int arraySize = 10;
+        final int arraySize = 100;
 
         final int[] baseBatchSizes = { 1, 10, 100, 1_000 };
         final int[] batchMultipliers = { 1 };
@@ -82,7 +82,7 @@ public class PerfTest {
         for (int baseBatchSize : baseBatchSizes) {
             for (int batchMultiplier : batchMultipliers) {
                 final int batchSize = baseBatchSize * batchMultiplier;
-                final int capacity = batchSize * 1_000;
+                final int capacity = batchSize * 100;
 
                 final PerfTest test = new PerfTest(operations, capacity, batchSize);
 
