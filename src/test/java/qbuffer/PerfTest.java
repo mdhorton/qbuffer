@@ -30,6 +30,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
+// qbuffer performance tests and optionally a unit test
 public class PerfTest {
 
     private final long operations;
@@ -55,20 +56,22 @@ public class PerfTest {
         final long operations = 1_000_000_000L;
         final int iterations = 5;
         final int arraySize = 100;
+        final int batchSizeMultiplyer = 100;
 
         final int[] baseBatchSizes = { 1, 10, 100, 1_000 };
         final int[] batchMultipliers = { 1 };
         final int[] queueCounts = { 2, 3 };
 
+        // save the stats for possible graphing
         final File file = new File("graph/qbuffer_tmp.dat");
         final PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(file)));
 
-        // warmup
-        if (warmupRuns > 0) System.out.println("warmup");
+        // execute warmups?
+        if (warmupRuns > 0) System.out.println("executing warmups");
 
         for (int x = 0; x < warmupRuns; x++) {
-            final int batchSize = 1_000;
-            final int capacity = batchSize * 1_000;
+            final int batchSize = 100;
+            final int capacity = batchSize * batchSizeMultiplyer;
 
             final PerfTest test = new PerfTest(1_000_000_000, capacity, batchSize);
 
@@ -79,10 +82,11 @@ public class PerfTest {
 
         System.out.println("starting perf runs");
 
+        // execute qbuffer perf tests with various batch sizes
         for (int baseBatchSize : baseBatchSizes) {
             for (int batchMultiplier : batchMultipliers) {
                 final int batchSize = baseBatchSize * batchMultiplier;
-                final int capacity = batchSize * 100;
+                final int capacity = batchSize * batchSizeMultiplyer;
 
                 final PerfTest test = new PerfTest(operations, capacity, batchSize);
 
@@ -100,6 +104,7 @@ public class PerfTest {
             }
         }
 
+        // execute jdk queue perf tests
         final PerfTest test = new PerfTest(operations, 10_000, 0);
         for (int iteration = 0; iteration < iterations; iteration++) {
             test.jdkQueueTest(arraySize);
@@ -109,204 +114,7 @@ public class PerfTest {
         writer.close();
     }
 
-    private void summarize(final PrintWriter writer) {
-        writer.printf("%d ", batchSize);
-
-        for (final String name : results.keySet()) {
-            final long[] vals = results.get(name);
-            printStats("SUMMARY", vals[0], vals[1]);
-            writer.printf("%d %d ", vals[0], vals[1]);
-        }
-
-        writer.println();
-        writer.flush();
-    }
-
-    private void stats(final String name, final long operations, final long nanos) {
-        printStats(name, operations, nanos);
-
-        long[] vals = results.get(name);
-        if (vals == null) {
-            vals = new long[2];
-            vals[0] = 0;
-            vals[1] = 0;
-            results.put(name, vals);
-        }
-
-        vals[0] += operations;
-        vals[1] += nanos;
-    }
-
-    private void printStats(final String name, final long operations, final long nanos) {
-        System.out.format("%15s -> ops/sec: %,11.0f - avg: %5.2f ns%n", name,
-                (operations / (double) nanos) * 1_000_000_000, (double) nanos / operations);
-    }
-
-    private void jdkQueueTest(final int arraySize) throws Exception {
-        final Queue<String[]> queue = new ArrayBlockingQueue<>(capacity);
-
-        final CountDownLatch startGate = new CountDownLatch(1);
-        final CountDownLatch endGate = new CountDownLatch(2);
-        final String object = "hey";
-
-        new Thread(new Runnable() {
-            private long cnt;
-
-            @Override
-            public void run() {
-                try {
-                    startGate.await();
-                    while (cnt < operations) {
-                        process();
-                    }
-                    endGate.countDown();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-
-            private void process() {
-                final String[] arr = queue.poll();
-                if (arr == null) {
-                    Thread.yield();
-                    return;
-                }
-
-                for (int z = 0; z < arr.length; z++) {
-                    cnt++;
-                }
-            }
-        }).start();
-
-        new Thread(new Runnable() {
-            private long cnt;
-
-            @Override
-            public void run() {
-                try {
-                    startGate.await();
-                    while (cnt < operations) {
-                        process();
-                    }
-                    endGate.countDown();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-
-            private void process() {
-                final String[] arr = new String[arraySize];
-                for (int z = 0; z < arraySize; z++) {
-                    arr[z] = object;
-                }
-
-                if (!queue.offer(arr)) {
-                    Thread.yield();
-                    return;
-                }
-
-                cnt += arraySize;
-            }
-        }).start();
-
-        final long start = System.nanoTime();
-        startGate.countDown();
-        endGate.await();
-        final long stop = System.nanoTime();
-
-        stats("jdkqueue", operations, stop - start);
-    }
-
-    @SuppressWarnings("unchecked")
-    private void jdkQueueMultipleTest(final int queueCount) throws Exception {
-        final CountDownLatch startGate = new CountDownLatch(1);
-        final CountDownLatch endGate = new CountDownLatch(queueCount + 1);
-        final String object = "hey";
-
-        final Queue<String>[] queues = new Queue[queueCount];
-        final long cnts[] = new long[queueCount];
-
-        for (int n = 0; n < queueCount; n++) {
-            final Queue<String> queue = new ArrayBlockingQueue<>(capacity);
-            queues[n] = queue;
-            cnts[n] = 0;
-
-            new Thread(new Runnable() {
-                private long cnt;
-
-                @Override
-                public void run() {
-                    try {
-                        startGate.await();
-                        while (cnt < operations) {
-                            process();
-                        }
-                        endGate.countDown();
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
-                }
-
-                private void process() {
-                    if (queue.poll() == null) {
-                        Thread.yield();
-                        return;
-                    }
-
-                    cnt++;
-                }
-            }).start();
-        }
-
-        new Thread(new Runnable() {
-            private long loops;
-            private int completed;
-
-            @Override
-            public void run() {
-                try {
-                    startGate.await();
-                    while (completed < queueCount) {
-                        process(loops++);
-                    }
-                    endGate.countDown();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-
-            private void process(final long x) {
-                final int idx = (int) (x % queueCount);
-                long cnt = cnts[idx];
-
-                if (cnt == -1) return;
-
-                if (cnt >= operations) {
-                    cnts[idx] = -1;
-                    completed++;
-                    return;
-                }
-
-                final Queue<String> queue = queues[idx];
-
-                if (!queue.offer(object)) {
-                    Thread.yield();
-                    return;
-                }
-
-                cnt++;
-                cnts[idx] = cnt;
-            }
-        }).start();
-
-        final long start = System.nanoTime();
-        startGate.countDown();
-        endGate.await();
-        final long stop = System.nanoTime();
-
-        stats("jdkqueue-" + queueCount, operations * queueCount, stop - start);
-    }
-
+    // qbuffer perf test writing into a single queue
     private void qbufferTest(final int arraySize) throws Exception {
         final QBuffer<String[]> queue = new QBuffer<>(capacity, batchSize);
 
@@ -340,9 +148,7 @@ public class PerfTest {
 
                 for (int y = 0; y < s; y++) {
                     final String[] arr = consumer.consume();
-                    for (int z = 0; z < arr.length; z++) {
-                        cnt++;
-                    }
+                    cnt += arr.length;
                 }
 
                 consumer.lazyMixCommit();
@@ -394,6 +200,7 @@ public class PerfTest {
         stats("qbuffer", operations, stop - start);
     }
 
+    // qbuffer perf test writing into multiple queues
     @SuppressWarnings("unchecked")
     private void qbufferMultipleTest(final int arraySize, final int queueCount) throws Exception {
         final CountDownLatch startGate = new CountDownLatch(1);
@@ -434,9 +241,7 @@ public class PerfTest {
 
                     for (int y = 0; y < s; y++) {
                         final String[] arr = consumer.consume();
-                        for (int z = 0; z < arr.length; z++) {
-                            cnt++;
-                        }
+                        cnt += arr.length;
                     }
 
                     consumer.lazyMixCommit();
@@ -502,6 +307,9 @@ public class PerfTest {
         stats("qbuffer-" + queueCount, operations * queueCount, stop - start);
     }
 
+    // qbuffer unit test
+    // producer adds an incrementing long value to the queue,
+    // consumer verifies the incrementing long value
     private void qbufferUnitTest() throws Exception {
         final QBuffer<Long> queue = new QBuffer<>(capacity, batchSize);
 
@@ -581,5 +389,115 @@ public class PerfTest {
         final long stop = System.nanoTime();
 
         stats("qbuffer-unit", operations, stop - start);
+    }
+
+    // jdk queue perf tests
+    private void jdkQueueTest(final int arraySize) throws Exception {
+        final Queue<String[]> queue = new ArrayBlockingQueue<>(capacity);
+
+        final CountDownLatch startGate = new CountDownLatch(1);
+        final CountDownLatch endGate = new CountDownLatch(2);
+        final String object = "hey";
+
+        new Thread(new Runnable() {
+            private long cnt;
+
+            @Override
+            public void run() {
+                try {
+                    startGate.await();
+                    while (cnt < operations) {
+                        process();
+                    }
+                    endGate.countDown();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            private void process() {
+                final String[] arr = queue.poll();
+                if (arr == null) {
+                    Thread.yield();
+                    return;
+                }
+
+                cnt += arr.length;
+            }
+        }).start();
+
+        new Thread(new Runnable() {
+            private long cnt;
+
+            @Override
+            public void run() {
+                try {
+                    startGate.await();
+                    while (cnt < operations) {
+                        process();
+                    }
+                    endGate.countDown();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+
+            private void process() {
+                final String[] arr = new String[arraySize];
+                for (int z = 0; z < arraySize; z++) {
+                    arr[z] = object;
+                }
+
+                if (!queue.offer(arr)) {
+                    Thread.yield();
+                    return;
+                }
+
+                cnt += arraySize;
+            }
+        }).start();
+
+        final long start = System.nanoTime();
+        startGate.countDown();
+        endGate.await();
+        final long stop = System.nanoTime();
+
+        stats("jdkqueue", operations, stop - start);
+    }
+
+    // summarize and print the results
+    private void summarize(final PrintWriter writer) {
+        writer.printf("%d ", batchSize);
+
+        for (final String name : results.keySet()) {
+            final long[] vals = results.get(name);
+            printStats("SUMMARY", vals[0], vals[1]);
+            writer.printf("%d %d ", vals[0], vals[1]);
+        }
+
+        writer.println();
+        writer.flush();
+    }
+
+    // handle the perf test stats
+    private void stats(final String name, final long operations, final long nanos) {
+        printStats(name, operations, nanos);
+
+        long[] vals = results.get(name);
+        if (vals == null) {
+            vals = new long[2];
+            vals[0] = 0;
+            vals[1] = 0;
+            results.put(name, vals);
+        }
+
+        vals[0] += operations;
+        vals[1] += nanos;
+    }
+
+    // print out the stats
+    private void printStats(final String name, final long operations, final long nanos) {
+        System.out.format("%15s -> ops/sec: %,11.0f - avg: %5.2f ns%n", name,
+                (operations / (double) nanos) * 1_000_000_000, (double) nanos / operations);
     }
 }
