@@ -24,9 +24,9 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @param <E> the type of items held in this queue
  */
-public class QBufferProducer<E> extends QParticipant<E> {
+public class QBufferProducer<E> extends QBufferParticipant<E> {
 
-    // see the QParticipant constructor for more info
+    // see the QBufferParticipant constructor for more info
     protected QBufferProducer(final E[] data, final AtomicLong head, final AtomicLong tail, final AtomicBoolean active,
             final int batchSize) {
         // head is the queue head for the producer
