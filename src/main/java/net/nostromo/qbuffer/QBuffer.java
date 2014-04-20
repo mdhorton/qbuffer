@@ -22,10 +22,10 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * QBuffer is a lock-free high performance single producer single consumer queue.
  * <p>
- * It's backed by an array that acts as a circular buffer.  Two AtomicLong variables act as memory barriers for the head
+ * It's backed by an array that acts as a circular buffer. Two AtomicLong variables act as memory barriers for the head
  * and tail of the queue.
  * <p>
- * Items are typically added in batches.  This along with the lock-free algorithm provides extremely high throughput.
+ * Items are typically added in batches. This along with the lock-free algorithm provides extremely high throughput.
  *
  * @param <E> the type of items held in this queue
  */
@@ -75,7 +75,7 @@ public class QBuffer<E> {
     }
 
     /**
-     * Computes and returns the next power of 2 for the given integer.  If the given integer is a power of 2 then that
+     * Computes and returns the next power of 2 for the given integer. If the given integer is a power of 2 then that
      * value is returned.
      * <p>
      * This is a simple performance enhancement to allow the use of a bitmask instead of using modulo to determine an
