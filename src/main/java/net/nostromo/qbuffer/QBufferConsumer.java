@@ -24,9 +24,9 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * @param <E> the type of items held in this queue
  */
-public class QBufferConsumer<E> extends QParticipant<E> {
+public class QBufferConsumer<E> extends QBufferParticipant<E> {
 
-    // see the QParticipant constructor for more info
+    // see the QBufferParticipant constructor for more info
     protected QBufferConsumer(final E[] data, final AtomicLong tail, final AtomicLong head, final AtomicBoolean active,
             final int batchSize) {
         // head is the queue tail for the consumer
@@ -61,9 +61,6 @@ public class QBufferConsumer<E> extends QParticipant<E> {
      * @return the last item in the queue
      */
     public E consume() {
-        final int idx = (int) (ops++ & mask);
-        final E e = data[idx];
-        data[idx] = null;
-        return e;
+        return data[(int) (ops++ & mask)];
     }
 }
