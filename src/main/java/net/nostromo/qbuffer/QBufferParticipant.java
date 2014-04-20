@@ -131,7 +131,6 @@ public abstract class QBufferParticipant<E> {
         final long opCount = ops - tail.get();
         opsCapacity -= opCount;
 
-        // enum switching is faster than if statements
         switch (mode) {
             case LAZY_SET_MIX:
                 // If we've used up the current opsCapacity then set(), otherwise lazySet().
