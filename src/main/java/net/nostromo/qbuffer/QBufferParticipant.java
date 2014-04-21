@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public abstract class QBufferParticipant<E> {
 
-    public enum CommitMode {
+    private enum CommitMode {
         SET, LAZY_SET, LAZY_SET_MIX
     }
 
